@@ -5,6 +5,7 @@ A backend-focused operations dashboard built to manage and query operational dat
 Screenshots
 
 ![Server running](screenshots/server-running.png)
+
 ![Browser response](screenshots/browser.png)
 
 
