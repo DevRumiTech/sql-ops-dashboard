@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Retail Ops & Margin Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Retail Ops & Margin Dashboard</h1>
+      <p class="sub">
+        Internal-style reporting powered by SQL
+        (schema, views, and analytics queries)
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>Revenue by Product</h2>
+
+      <table id="revenueTable">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Revenue ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- rows inserted by JavaScript -->
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    async function loadRevenueTable() {
+      const res = await fetch("/api/revenue/products");
+      const data = await res.json();
+  
+      const tbody = document.querySelector("#revenueTable tbody");
+      tbody.innerHTML = "";
+  
+      for (const row of data) {
+        const tr = document.createElement("tr");
+  
+        const productTd = document.createElement("td");
+        productTd.textContent = row.product_name;
+  
+        const revenueTd = document.createElement("td");
+        revenueTd.textContent = row.revenue.toFixed(2);
+  
+        tr.appendChild(productTd);
+        tr.appendChild(revenueTd);
+        tbody.appendChild(tr);
+      }
+    }
+  
+    loadRevenueTable();
+  </script>
+  
+
+
+
+</body>
+</html>
