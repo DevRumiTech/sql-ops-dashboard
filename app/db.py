@@ -1,4 +1,4 @@
-"""SQLite connection and query helpers used across the application."""
+"""Read-only SQLite connection and query helpers."""
 
 from __future__ import annotations
 
@@ -11,18 +11,19 @@ from flask import Flask, current_app, g
 
 
 def _database_path() -> Path:
-    """Return the database path from the active Flask configuration."""
-    return Path(current_app.config["DATABASE"])
+    """Return the configured SQLite database path."""
+    return Path(current_app.config["DATABASE"]).expanduser().resolve()
 
 
 def get_db() -> sqlite3.Connection:
-    """Open one configured SQLite connection for the current request."""
+    """Open one request-scoped SQLite connection in read-only mode."""
     if "db" not in g:
-        connection = sqlite3.connect(_database_path())
+        database_uri = f"{_database_path().as_uri()}?mode=ro"
+        connection = sqlite3.connect(database_uri, uri=True)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA query_only = ON")
         g.db = connection
-
     return g.db
 
 
@@ -51,5 +52,5 @@ def query_one(
 
 
 def init_app(app: Flask) -> None:
-    """Attach database cleanup to a Flask application."""
+    """Attach database cleanup to the Flask application."""
     app.teardown_appcontext(close_db)

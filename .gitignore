@@ -3,7 +3,9 @@ venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
 .coverage
+coverage.xml
 htmlcov/
 .env
 .env.*
@@ -11,3 +13,4 @@ htmlcov/
 __MACOSX/
 *.db-shm
 *.db-wal
+.vercel/

@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+
+      - name: Run Ruff
+        run: python -m ruff check .
+
+      - name: Run tests with coverage
+        run: python -m pytest --cov=app --cov=scripts --cov-report=term-missing --cov-fail-under=85 -q
+
+      - name: Verify database initialization
+        run: python scripts/init_db.py /tmp/sql-ops-dashboard-ci.db
+
+      - name: Verify SQLite integrity
+        run: >-
+          python -c "import sqlite3;
+          connection = sqlite3.connect('/tmp/sql-ops-dashboard-ci.db');
+          assert connection.execute('PRAGMA integrity_check').fetchone() == ('ok',);
+          assert connection.execute('PRAGMA foreign_key_check').fetchall() == [];
+          connection.close()"

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
+  <title>SQL Ops Dashboard bar chart</title>
+  <rect width="64" height="64" rx="14" fill="#102448"/>
+  <rect x="13" y="35" width="9" height="16" rx="2" fill="#76a1ff"/>
+  <rect x="28" y="25" width="9" height="26" rx="2" fill="#33c2aa"/>
+  <rect x="43" y="13" width="9" height="38" rx="2" fill="#ffffff"/>
+</svg>
