@@ -134,78 +134,111 @@ recognized revenue and margin.
 API money values are JSON numbers in US dollars, not formatted strings. Currency
 formatting is applied in the browser.
 
-## Installation on macOS or Linux
+## Installation and usage
 
-From the repository root:
+The commands below are separated by operating system. `python3` is commonly used
+to invoke Python on macOS and Linux, while the Windows PowerShell examples use
+the Python launcher command `py`.
+
+### macOS and Linux
+
+From the repository root, create and activate a virtual environment and install
+the runtime dependencies:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
 ```
 
-Install only runtime dependencies with
-`python -m pip install -r requirements.txt` when tests are not needed.
+Rebuild the default database from the versioned SQL files:
 
-## Installation on Windows PowerShell
+```bash
+python3 scripts/init_db.py
+```
 
-From the repository root:
+To initialize a separate database and create any missing parent directories:
+
+```bash
+python3 scripts/init_db.py data/portfolio-copy.db
+```
+
+Start the application:
+
+```bash
+python3 run.py
+```
+
+Then open <http://127.0.0.1:5000>. Debug mode is disabled by default. To use
+Flask's optional development mode instead:
+
+```bash
+python3 -m flask --app app run --debug
+```
+
+To install the test dependency and run the full test suite:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest -q
+```
+
+### Windows PowerShell
+
+From the repository root, create and activate a virtual environment and install
+the runtime dependencies:
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+py -m pip install --upgrade pip
+py -m pip install -r requirements.txt
 ```
 
-If PowerShell blocks local activation scripts, the environment's Python can be
-called directly as `.\.venv\Scripts\python.exe`.
+If PowerShell blocks local activation scripts, the environment's Python
+executable can be called directly as `.venv\Scripts\python.exe`.
 
-## Initialize the database
+Rebuild the default database from the versioned SQL files:
 
-Rebuild the default database from the three SQL files:
-
-```bash
-python scripts/init_db.py
+```powershell
+py scripts\init_db.py
 ```
 
-An optional output path creates a separate database and any missing parent
-directories:
+To initialize a separate database and create any missing parent directories:
 
-```bash
-python scripts/init_db.py data/portfolio-copy.db
+```powershell
+py scripts\init_db.py data\portfolio-copy.db
 ```
 
-The utility builds and validates a temporary database before atomically replacing
-the requested output file. A failed rebuild leaves the previous database in
-place and returns a non-zero exit status.
+Start the application:
 
-## Run the application
-
-Start the local server from the repository root:
-
-```bash
-python run.py
+```powershell
+py run.py
 ```
 
-Then open <http://127.0.0.1:5000>. Debug mode is disabled by default. Flask's
-development command is also supported:
+Then open <http://127.0.0.1:5000>. Debug mode is disabled by default. To use
+Flask's optional development mode instead:
 
-```bash
-flask --app app run --debug
+```powershell
+py -m flask --app app run --debug
 ```
 
-The application runs locally and is not currently hosted.
+To install the test dependency and run the full test suite:
 
-## Run the tests
-
-```bash
-python -m pytest -q
+```powershell
+py -m pip install -r requirements-dev.txt
+py -m pytest -q
 ```
+
+The database initialization utility builds and validates a temporary database
+before atomically replacing the requested output file. A failed rebuild leaves
+the previous database in place and returns a non-zero exit status.
 
 Tests rebuild and use temporary SQLite databases. They do not modify
 `data/ops.db`.
+
+The application currently runs locally and is not yet hosted online.
 
 ## What this project demonstrates
 
