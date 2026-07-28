@@ -24,7 +24,10 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
         static_folder=str(PUBLIC_DIRECTORY),
         static_url_path="",
     )
-    application.config.from_mapping(DATABASE=DEFAULT_DATABASE)
+    application.config.from_mapping(
+        DATABASE=DEFAULT_DATABASE,
+        TEMPLATES_AUTO_RELOAD=True,
+    )
     if test_config:
         application.config.update(test_config)
     application.config["DATABASE"] = Path(application.config["DATABASE"])
@@ -111,6 +114,8 @@ def _register_security_headers(application: Flask) -> None:
 
     @application.after_request
     def add_security_headers(response: Response) -> Response:
+        if response.mimetype == "text/html":
+            response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-Frame-Options"] = "DENY"

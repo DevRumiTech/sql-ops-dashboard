@@ -34,7 +34,7 @@
     <header class="site-header">
       <div class="page-shell hero">
         <p class="eyebrow">Retail Operations Analytics</p>
-        <h1>SQL Ops Dashboard</h1>
+        <h1 id="page-title" tabindex="-1">SQL Ops Dashboard</h1>
         <p class="hero-description">
           A dashboard for tracking recognized revenue, product margins, and
           category performance using Flask APIs and SQLite.
@@ -43,6 +43,19 @@
     </header>
 
     <main id="main-content" class="page-shell dashboard">
+      <nav class="mobile-section-nav" aria-label="Dashboard sections">
+        <label for="mobile-section-select">Jump to section</label>
+        <select id="mobile-section-select" name="dashboard-section">
+          <option value="overview-section">Overview</option>
+          <option value="trend-section">Performance trend</option>
+          <option value="revenue-section">Revenue analysis</option>
+          <option value="profitability-section">Profitability</option>
+          <option value="product-performance-section">
+            Product performance
+          </option>
+        </select>
+      </nav>
+
       <div
         id="dashboard-status"
         class="dashboard-status"
@@ -65,59 +78,75 @@
           </div>
           <p>Filters update every metric and chart.</p>
         </div>
-        <form id="global-filters" class="global-filter-grid">
-          <div class="control-group">
-            <label for="period-preset">Date period</label>
-            <select id="period-preset" name="period">
-              <option value="30-days">Latest 30 days</option>
-              <option value="90-days">Latest 90 days</option>
-              <option value="12-months" selected>Latest 12 months</option>
-              <option value="all">All available data</option>
-              <option value="custom">Custom range</option>
-            </select>
-          </div>
-          <div class="control-group">
-            <label for="start-date">Start date</label>
-            <input
-              id="start-date"
-              name="start_date"
-              type="date"
-              aria-describedby="date-range-helper"
-              readonly
-            >
-          </div>
-          <div class="control-group">
-            <label for="end-date">End date</label>
-            <input
-              id="end-date"
-              name="end_date"
-              type="date"
-              aria-describedby="date-range-helper"
-              readonly
-            >
-          </div>
-          <div class="control-group">
-            <label for="category-filter">Category</label>
-            <select id="category-filter" name="category">
-              <option value="">All categories</option>
-            </select>
-          </div>
+        <div class="mobile-filter-toolbar">
+          <p id="filter-summary" aria-live="polite" hidden>
+            Latest 12 months · All categories
+          </p>
           <button
-            id="reset-filters"
-            class="secondary-button"
-            type="reset"
+            id="filter-toggle"
+            class="text-button filter-toggle"
+            type="button"
+            aria-expanded="true"
+            aria-controls="filter-controls"
           >
-            Reset filters
+            Hide filters
           </button>
-        </form>
-        <p
-          id="date-range-helper"
-          class="date-range-helper"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          Dates are set automatically by the selected period.
-        </p>
+        </div>
+        <div id="filter-controls">
+          <form id="global-filters" class="global-filter-grid">
+            <div class="control-group">
+              <label for="period-preset">Date period</label>
+              <select id="period-preset" name="period">
+                <option value="30-days">Latest 30 days</option>
+                <option value="90-days">Latest 90 days</option>
+                <option value="12-months" selected>Latest 12 months</option>
+                <option value="all">All available data</option>
+                <option value="custom">Custom range</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="start-date">Start date</label>
+              <input
+                id="start-date"
+                name="start_date"
+                type="date"
+                aria-describedby="date-range-helper"
+                readonly
+              >
+            </div>
+            <div class="control-group">
+              <label for="end-date">End date</label>
+              <input
+                id="end-date"
+                name="end_date"
+                type="date"
+                aria-describedby="date-range-helper"
+                readonly
+              >
+            </div>
+            <div class="control-group">
+              <label for="category-filter">Category</label>
+              <select id="category-filter" name="category">
+                <option value="">All categories</option>
+              </select>
+            </div>
+            <button
+              id="reset-filters"
+              class="secondary-button"
+              type="reset"
+            >
+              Reset filters
+            </button>
+          </form>
+          <p
+            id="date-range-helper"
+            class="date-range-helper"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            Dates are set automatically by the selected period.
+          </p>
+        </div>
         <p
           id="latest-data-notice"
           class="latest-data-notice"
@@ -134,11 +163,11 @@
         ></p>
       </section>
 
-      <section aria-labelledby="overview-heading">
+      <section id="overview-section" aria-labelledby="overview-heading">
         <div class="section-heading">
           <div>
             <p class="section-kicker">At a glance</p>
-            <h2 id="overview-heading">Operations overview</h2>
+            <h2 id="overview-heading" tabindex="-1">Operations overview</h2>
           </div>
           <p class="section-note">Completed orders only</p>
         </div>
@@ -232,11 +261,17 @@
         </p>
       </section>
 
-      <section class="panel trend-panel" aria-labelledby="trend-title">
+      <section
+        id="trend-section"
+        class="panel trend-panel"
+        aria-labelledby="trend-title"
+      >
         <div class="panel-heading">
           <div>
             <p class="section-kicker">Performance over time</p>
-            <h2 id="trend-title">Monthly Revenue and Gross Margin</h2>
+            <h2 id="trend-title" tabindex="-1">
+              Monthly Revenue and Gross Margin
+            </h2>
           </div>
           <span class="metric-badge">USD</span>
         </div>
@@ -256,12 +291,16 @@
         </div>
       </section>
 
-      <section class="analytics-grid" aria-label="Revenue and margin analytics">
+      <section
+        id="revenue-section"
+        class="analytics-grid"
+        aria-label="Revenue and margin analytics"
+      >
         <article class="panel panel-wide" aria-labelledby="product-mix-title">
           <div class="panel-heading">
             <div>
               <p class="section-kicker">Revenue contribution</p>
-              <h2 id="product-mix-title">Product Mix</h2>
+              <h2 id="product-mix-title" tabindex="-1">Product Mix</h2>
             </div>
             <span class="metric-badge">USD</span>
           </div>
@@ -308,11 +347,17 @@
           </div>
         </article>
 
-        <article class="panel panel-full" aria-labelledby="margin-title">
+        <article
+          id="profitability-section"
+          class="panel panel-full"
+          aria-labelledby="margin-title"
+        >
           <div class="panel-heading">
             <div>
               <p class="section-kicker">Profitability</p>
-              <h2 id="margin-title">Gross Margin by Product</h2>
+              <h2 id="margin-title" tabindex="-1">
+                Gross Margin by Product
+              </h2>
             </div>
             <p class="panel-key">
               <span aria-hidden="true"></span>
@@ -339,11 +384,15 @@
         </article>
       </section>
 
-      <section class="panel table-panel" aria-labelledby="table-title">
+      <section
+        id="product-performance-section"
+        class="panel table-panel"
+        aria-labelledby="table-title"
+      >
         <div class="table-panel-heading">
           <div>
             <p class="section-kicker">Detailed view</p>
-            <h2 id="table-title">Product Performance</h2>
+            <h2 id="table-title" tabindex="-1">Product Performance</h2>
             <p class="panel-description">
               Search, sort, and export the currently filtered product results.
             </p>
@@ -426,6 +475,17 @@
         <p id="table-result-count" class="result-count" aria-live="polite"></p>
       </section>
     </main>
+
+    <button
+      id="back-to-top"
+      class="back-to-top"
+      type="button"
+      aria-label="Back to top"
+      hidden
+    >
+      <span aria-hidden="true">↑</span>
+      Back to top
+    </button>
 
     <footer class="site-footer">
       <div class="page-shell footer-content">

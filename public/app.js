@@ -11,6 +11,16 @@
   ];
   const PRODUCT_MIX_LIMIT = 10;
   const MARGIN_CARD_LIMIT = 8;
+  const BACK_TO_TOP_THRESHOLD = 600;
+  const mobileLayout = window.matchMedia("(max-width: 767.98px)");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const sectionHeadingIds = {
+    "overview-section": "overview-heading",
+    "product-performance-section": "table-title",
+    "profitability-section": "margin-title",
+    "revenue-section": "product-mix-title",
+    "trend-section": "trend-title",
+  };
   const currencyFormatter = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -38,29 +48,39 @@
   const trendPresentations = {
     daily: {
       description: "Recognized revenue and gross margin by calendar day.",
+      periodLabel: "Daily",
       title: "Daily Revenue and Gross Margin",
     },
     monthly: {
       description: "Recognized revenue and gross margin by calendar month.",
+      periodLabel: "Monthly",
       title: "Monthly Revenue and Gross Margin",
     },
     weekly: {
       description:
         "Recognized revenue and gross margin by selected seven-day period.",
+      periodLabel: "Weekly",
       title: "Weekly Revenue and Gross Margin",
     },
   };
 
   const elements = {
+    backToTop: document.querySelector("#back-to-top"),
     categoryFilter: document.querySelector("#category-filter"),
     csvButton: document.querySelector("#download-csv"),
     dateRangeHelper: document.querySelector("#date-range-helper"),
     endDate: document.querySelector("#end-date"),
+    filterControls: document.querySelector("#filter-controls"),
     filterForm: document.querySelector("#global-filters"),
     filterMessage: document.querySelector("#filter-message"),
+    filterPanel: document.querySelector(".filter-panel"),
+    filterSummary: document.querySelector("#filter-summary"),
+    filterToggle: document.querySelector("#filter-toggle"),
     latestDataNotice: document.querySelector("#latest-data-notice"),
     marginList: document.querySelector("#margin-list"),
     metadata: document.querySelector("#analysis-metadata"),
+    mobileSectionSelect: document.querySelector("#mobile-section-select"),
+    pageTitle: document.querySelector("#page-title"),
     periodPreset: document.querySelector("#period-preset"),
     productChart: document.querySelector("#product-revenue-chart"),
     resultCount: document.querySelector("#table-result-count"),
@@ -80,12 +100,19 @@
     abortController: null,
     currentPeriod: null,
     displayedProducts: [],
+    focusHandler: null,
+    focusTimer: null,
     meta: null,
     products: [],
+    renderedTrendMode: null,
+    renderedTrendWidth: 0,
     requestSequence: 0,
+    scrollFrame: null,
     searchTimer: null,
     sortDirection: "desc",
     sortKey: "revenue",
+    trendPayload: null,
+    trendResizeTimer: null,
   };
 
   async function fetchJson(url, signal) {
@@ -109,6 +136,8 @@
       renderLatestDataNotice(payload.meta.maximum_completed_order_date);
       populateCategories(payload.meta.available_categories);
       applyPreset("12-months");
+      updateFilterSummary();
+      setFilterExpanded(true);
       await loadDashboard();
     } catch (_error) {
       renderCompleteFailure();
@@ -180,13 +209,111 @@
     return parameters.toString();
   }
 
-  async function loadDashboard() {
+  function updateFilterSummary() {
+    const selectedOption = elements.periodPreset.selectedOptions[0];
+    let periodLabel = selectedOption
+      ? selectedOption.textContent.trim()
+      : "Selected period";
+    if (
+      elements.periodPreset.value === "custom" &&
+      isIsoDate(elements.startDate.value) &&
+      isIsoDate(elements.endDate.value)
+    ) {
+      periodLabel = `${formatDisplayDate(
+        elements.startDate.value
+      )}–${formatDisplayDate(elements.endDate.value)}`;
+    }
+    const categoryLabel =
+      elements.categoryFilter.value || "All categories";
+    elements.filterSummary.textContent = `${periodLabel} · ${categoryLabel}`;
+  }
+
+  function setFilterExpanded(expanded) {
+    const hasError = elements.filterMessage.textContent.trim() !== "";
+    const shouldExpand = !mobileLayout.matches || expanded || hasError;
+    elements.filterControls.hidden = !shouldExpand;
+    elements.filterSummary.hidden = shouldExpand;
+    elements.filterToggle.setAttribute(
+      "aria-expanded",
+      String(shouldExpand)
+    );
+    elements.filterToggle.textContent = shouldExpand
+      ? "Hide filters"
+      : "Edit filters";
+    elements.filterPanel.classList.toggle("is-collapsed", !shouldExpand);
+  }
+
+  function preferredScrollBehavior() {
+    return reducedMotion.matches ? "auto" : "smooth";
+  }
+
+  function focusAfterScroll(element, behavior) {
+    window.clearTimeout(state.focusTimer);
+    if (state.focusHandler) {
+      window.removeEventListener("scrollend", state.focusHandler);
+    }
+    const finishFocus = () => {
+      window.clearTimeout(state.focusTimer);
+      window.removeEventListener("scrollend", finishFocus);
+      if (state.focusHandler === finishFocus) {
+        state.focusHandler = null;
+        element.focus({ preventScroll: true });
+      }
+    };
+    state.focusHandler = finishFocus;
+    if (behavior === "smooth") {
+      window.addEventListener("scrollend", finishFocus, { once: true });
+    }
+    state.focusTimer = window.setTimeout(
+      finishFocus,
+      behavior === "smooth" ? 700 : 0
+    );
+  }
+
+  function navigateToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const heading = document.getElementById(sectionHeadingIds[sectionId]);
+    if (!section || !heading) {
+      return;
+    }
+    const behavior = preferredScrollBehavior();
+    section.scrollIntoView({ behavior, block: "start" });
+    focusAfterScroll(heading, behavior);
+  }
+
+  function updateBackToTopVisibility() {
+    elements.backToTop.hidden =
+      !mobileLayout.matches || window.scrollY < BACK_TO_TOP_THRESHOLD;
+  }
+
+  function scheduleBackToTopUpdate() {
+    if (state.scrollFrame !== null) {
+      return;
+    }
+    state.scrollFrame = window.requestAnimationFrame(() => {
+      state.scrollFrame = null;
+      updateBackToTopVisibility();
+    });
+  }
+
+  function handleLayoutChange() {
+    setFilterExpanded(true);
+    updateBackToTopVisibility();
+    scheduleTrendRender();
+  }
+
+  async function loadDashboard({ collapseFilters = false } = {}) {
     let query;
     try {
       query = selectedQuery();
       elements.filterMessage.textContent = "";
+      updateFilterSummary();
+      if (collapseFilters) {
+        setFilterExpanded(false);
+      }
     } catch (error) {
       elements.filterMessage.textContent = error.message;
+      setFilterExpanded(true);
       return;
     }
 
@@ -218,6 +345,7 @@
       }
     });
     if (failures) {
+      setFilterExpanded(true);
       showStatus(
         "Dashboard data could not be loaded. Please try again.",
         "error"
@@ -278,6 +406,9 @@
     elements.trendTitle.textContent = "Revenue and Gross Margin Trend";
     elements.trendDescription.textContent =
       "Loading the selected performance period.";
+    state.renderedTrendMode = null;
+    state.renderedTrendWidth = 0;
+    state.trendPayload = null;
     setRegionLoading(elements.trend, "Loading performance trend", "loading-bars");
     setRegionLoading(elements.productChart, "Loading product revenue", "loading-bars");
     setRegionLoading(
@@ -469,19 +600,16 @@
   }
 
   function renderTrend(payload) {
+    state.trendPayload = payload;
     const rows = Array.isArray(payload.data) ? payload.data : [];
     const presentation =
       trendPresentations[payload.granularity] || trendPresentations.monthly;
+    const renderMode = mobileLayout.matches ? "summary" : "chart";
+    state.renderedTrendMode = renderMode;
+    state.renderedTrendWidth = 0;
     elements.trendTitle.textContent = presentation.title;
     elements.trendDescription.textContent = presentation.description;
     prepareRegion(elements.trend);
-    const maximum = Math.max(
-      0,
-      ...rows.flatMap((row) => [
-        positiveNumber(row.revenue),
-        positiveNumber(row.gross_margin),
-      ])
-    );
     if (
       !rows.length ||
       !rows.some((row) => row.has_completed_orders === true)
@@ -492,29 +620,122 @@
       );
       return;
     }
-    const scaleMaximum = Math.max(1, maximum);
 
-    const availableWidth = Math.floor(elements.trend.getBoundingClientRect().width);
-    const width = Math.min(900, Math.max(320, availableWidth || 900));
-    const compact = width < 560;
-    const height = compact ? 300 : 340;
-    const plot = {
-      bottom: compact ? 250 : 286,
-      left: compact ? 64 : 82,
-      right: width - (compact ? 16 : 30),
-      top: 24,
-    };
-    const edgePadding = compact ? 24 : 32;
-    const dataLeft = plot.left + edgePadding;
-    const dataRight = plot.right - edgePadding;
-    const xStep =
-      rows.length > 1 ? (dataRight - dataLeft) / (rows.length - 1) : 0;
-    const yPosition = (value) =>
-      plot.bottom -
-      (positiveNumber(value) / scaleMaximum) * (plot.bottom - plot.top);
-    const xPosition = (index) =>
-      rows.length > 1 ? dataLeft + index * xStep : (dataLeft + dataRight) / 2;
+    if (renderMode === "summary") {
+      renderTrendSummary(rows, presentation);
+      return;
+    }
 
+    renderCombinedTrendChart(rows, payload.granularity, presentation);
+  }
+
+  function renderTrendSummary(rows, presentation) {
+    const summary = createElement("div", "trend-mobile-summary");
+    summary.setAttribute(
+      "aria-label",
+      `${presentation.periodLabel} revenue and gross margin summary`
+    );
+    summary.append(
+      createTrendSummaryGroup(
+        rows,
+        presentation,
+        "revenue",
+        "revenue",
+        "Monthly Revenue"
+      ),
+      createTrendSummaryGroup(
+        rows,
+        presentation,
+        "gross_margin",
+        "margin",
+        "Monthly Gross Margin"
+      )
+    );
+    const accessibleSummary = createElement("p", "visually-hidden");
+    accessibleSummary.textContent = createTrendScreenReaderSummary(rows);
+    elements.trend.replaceChildren(summary, accessibleSummary);
+  }
+
+  function createTrendSummaryGroup(
+    rows,
+    presentation,
+    valueKey,
+    colorName,
+    monthlyHeading
+  ) {
+    const valueFor = (row) => Number(row[valueKey]) || 0;
+    const latest = rows.at(-1);
+    const highest = rows.reduce((currentHighest, row) =>
+      valueFor(row) >
+      valueFor(currentHighest)
+        ? row
+        : currentHighest
+    );
+    const average =
+      rows.reduce((total, row) => total + valueFor(row), 0) /
+      rows.length;
+    const isMonthly = presentation.periodLabel === "Monthly";
+    const periodNoun = isMonthly ? "month" : "period";
+    const headingText = isMonthly
+      ? monthlyHeading
+      : `${presentation.periodLabel} ${
+          valueKey === "revenue" ? "Revenue" : "Gross Margin"
+        }`;
+
+    const group = createElement(
+      "section",
+      `trend-summary-group trend-summary-${colorName}`
+    );
+    const heading = createElement("h3", "trend-summary-heading", headingText);
+    heading.id = `trend-${colorName}-summary-heading`;
+    const headingRow = createElement("div", "trend-summary-heading-row");
+    const accent = createElement(
+      "span",
+      `trend-summary-accent trend-summary-accent-${colorName}`
+    );
+    accent.setAttribute("aria-hidden", "true");
+    headingRow.append(accent, heading);
+    group.setAttribute("aria-labelledby", heading.id);
+
+    const statistics = document.createElement("dl");
+    statistics.className = "trend-summary-stats";
+    statistics.append(
+      createTrendSummaryStat(
+        `Latest ${periodNoun}`,
+        latest.label,
+        latest[valueKey]
+      ),
+      createTrendSummaryStat(
+        `Highest ${periodNoun}`,
+        highest.label,
+        highest[valueKey]
+      ),
+      createTrendSummaryStat(
+        isMonthly ? "Average monthly value" : "Average period value",
+        "",
+        average
+      )
+    );
+    group.append(headingRow, statistics);
+    return group;
+  }
+
+  function createTrendSummaryStat(label, period, value) {
+    const statistic = document.createElement("div");
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    if (period) {
+      detail.append(createElement("span", "trend-summary-period", period));
+    }
+    detail.append(
+      createElement("strong", "trend-summary-value", formatCurrency(value))
+    );
+    statistic.append(term, detail);
+    return statistic;
+  }
+
+  function renderCombinedTrendChart(rows, granularity, presentation) {
     const figure = document.createElement("figure");
     figure.className = "trend-figure";
     const legend = createElement("div", "trend-legend");
@@ -523,10 +744,45 @@
       createLegendItem("legend-margin", "Gross margin"),
       createLegendItem("legend-missing", "No completed orders")
     );
+    const canvas = createElement("div", "trend-chart-canvas");
+    figure.append(legend, canvas);
+    elements.trend.replaceChildren(figure);
 
-    const scroll = createElement("div", "trend-scroll");
+    const svgWidth = Math.max(
+      1,
+      Math.floor(getTrendChartInnerWidth(canvas))
+    );
+    state.renderedTrendWidth = svgWidth;
+    const compact = svgWidth < 560;
+    const height = compact ? 300 : 340;
+    const plot = {
+      bottom: compact ? 250 : 286,
+      left: compact ? 68 : 82,
+      right: svgWidth - (compact ? 24 : 30),
+      top: 24,
+    };
+    const edgeInset = compact ? 24 : 32;
+    const dataLeft = plot.left + edgeInset;
+    const dataRight = plot.right - edgeInset;
+    const xStep =
+      rows.length > 1 ? (dataRight - dataLeft) / (rows.length - 1) : 0;
+    const xPosition = (index) =>
+      rows.length > 1 ? dataLeft + index * xStep : (dataLeft + dataRight) / 2;
+    const scaleMaximum = Math.max(
+      1,
+      ...rows.flatMap((row) => [
+        positiveNumber(row.revenue),
+        positiveNumber(row.gross_margin),
+      ])
+    );
+    const yPosition = (value) =>
+      plot.bottom -
+      (positiveNumber(value) / scaleMaximum) * (plot.bottom - plot.top);
+
     const svg = createSvgElement("svg");
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("viewBox", `0 0 ${svgWidth} ${height}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-labelledby", "trend-svg-title trend-svg-description");
     const title = createSvgElement("title");
@@ -558,30 +814,22 @@
       svg.append(gridLine, label);
     }
 
-    const targetLabelCount = compact
-      ? payload.granularity === "weekly"
-        ? 4
-        : 5
-      : payload.granularity === "daily" ||
-          payload.granularity === "weekly"
-        ? 7
-        : 12;
-    const labelStep =
-      rows.length <= 1
-        ? 1
-        : Math.max(
-            1,
-            Math.ceil((rows.length - 1) / (targetLabelCount - 1))
-          );
+    const visibleLabelIndexes = getTrendLabelIndexes(
+      rows.length,
+      getTrendLabelTarget(svgWidth, granularity)
+    );
     rows.forEach((row, index) => {
-      if (
-        index === 0 ||
-        index % labelStep === 0 ||
-        index === rows.length - 1
-      ) {
+      if (visibleLabelIndexes.has(index)) {
         const label = createSvgElement("text");
+        const textAnchor =
+          index === 0
+            ? "start"
+            : index === rows.length - 1
+              ? "end"
+              : "middle";
         setSvgAttributes(label, {
           class: "trend-axis-label trend-x-label",
+          "text-anchor": textAnchor,
           x: xPosition(index),
           y: plot.bottom + 26,
         });
@@ -605,29 +853,109 @@
       rows,
       "revenue",
       "trend-line-revenue",
+      "recognized revenue",
       xPosition,
-      yPosition
+      yPosition,
+      3.5
     );
     appendTrendSeries(
       svg,
       rows,
       "gross_margin",
       "trend-line-margin",
+      "gross margin",
       xPosition,
-      yPosition
+      yPosition,
+      3.5
     );
-    scroll.append(svg);
-
+    canvas.append(svg);
     const caption = createElement("figcaption", "visually-hidden");
-    caption.textContent = rows
+    caption.textContent = createTrendScreenReaderSummary(rows);
+    figure.append(caption);
+  }
+
+  function createTrendScreenReaderSummary(rows) {
+    return rows
       .map((row) =>
         row.has_completed_orders
           ? `${row.label}: ${formatCurrency(row.revenue)} revenue and ${formatCurrency(row.gross_margin)} gross margin.`
           : `${row.label}: no completed orders.`
       )
       .join(" ");
-    figure.append(legend, scroll, caption);
-    elements.trend.replaceChildren(figure);
+  }
+
+  function getTrendLabelTarget(svgWidth, granularity) {
+    if (granularity === "monthly" && svgWidth >= 560) {
+      return 12;
+    }
+    if (svgWidth < 340) {
+      return granularity === "daily" ? 5 : 4;
+    }
+    if (svgWidth < 480) {
+      return granularity === "daily" ? 6 : 5;
+    }
+    if (svgWidth < 720) {
+      return 7;
+    }
+    return granularity === "monthly" ? 12 : 7;
+  }
+
+  function getTrendLabelIndexes(rowCount, targetCount) {
+    if (rowCount <= 1) {
+      return new Set([0]);
+    }
+    const labelCount = Math.min(rowCount, Math.max(2, targetCount));
+    const indexes = new Set([0, rowCount - 1]);
+    for (let position = 1; position < labelCount - 1; position += 1) {
+      indexes.add(
+        Math.round((position * (rowCount - 1)) / (labelCount - 1))
+      );
+    }
+    return indexes;
+  }
+
+  function scheduleTrendRender() {
+    window.clearTimeout(state.trendResizeTimer);
+    state.trendResizeTimer = window.setTimeout(() => {
+      if (!state.trendPayload) {
+        return;
+      }
+      const nextMode = mobileLayout.matches ? "summary" : "chart";
+      if (nextMode !== state.renderedTrendMode) {
+        renderTrend(state.trendPayload);
+        return;
+      }
+      const canvas = elements.trend.querySelector(".trend-chart-canvas");
+      if (!canvas) {
+        return;
+      }
+      const availableWidth = Math.floor(getTrendChartInnerWidth(canvas));
+      if (
+        availableWidth > 0 &&
+        Math.abs(availableWidth - state.renderedTrendWidth) > 1
+      ) {
+        renderTrend(state.trendPayload);
+      }
+    }, 150);
+  }
+
+  function getTrendChartInnerWidth(canvas) {
+    const bounds = canvas.getBoundingClientRect();
+    const styles = window.getComputedStyle(canvas);
+    const horizontalPadding =
+      cssPixelValue(styles.paddingLeft) + cssPixelValue(styles.paddingRight);
+    const horizontalBorder =
+      cssPixelValue(styles.borderLeftWidth) +
+      cssPixelValue(styles.borderRightWidth);
+    return Math.max(
+      0,
+      bounds.width - horizontalPadding - horizontalBorder
+    );
+  }
+
+  function cssPixelValue(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   function appendTrendSeries(
@@ -635,29 +963,35 @@
     rows,
     valueKey,
     className,
+    pointLabel,
     xPosition,
-    yPosition
+    yPosition,
+    markerRadius
   ) {
-    const points = rows.map((row, index) => [
-      xPosition(index),
-      yPosition(row[valueKey]),
-    ]);
+    const points = rows.map((row, index) => ({
+      row,
+      x: xPosition(index),
+      y: yPosition(row[valueKey]),
+    }));
     if (points.length > 1) {
       const line = createSvgElement("polyline");
       setSvgAttributes(line, {
         class: `trend-line ${className}`,
-        points: points.map((point) => point.join(",")).join(" "),
+        points: points.map(({ x, y }) => `${x},${y}`).join(" "),
       });
       svg.append(line);
     }
-    points.forEach(([x, y]) => {
+    points.forEach(({ row, x, y }) => {
       const point = createSvgElement("circle");
       setSvgAttributes(point, {
         class: `trend-point ${className}`,
         cx: x,
         cy: y,
-        r: 3.5,
+        r: markerRadius,
       });
+      const pointTitle = createSvgElement("title");
+      pointTitle.textContent = `${row.label}: ${formatCurrency(row[valueKey])} ${pointLabel}`;
+      point.append(pointTitle);
       svg.append(point);
     });
   }
@@ -786,6 +1120,7 @@
 
   function renderCompleteFailure() {
     renderLatestDataNotice(null);
+    setFilterExpanded(true);
     showStatus(
       "Dashboard data could not be loaded. Please try again.",
       "error"
@@ -884,7 +1219,9 @@
 
   function createLegendItem(className, label) {
     const item = createElement("span", "legend-item");
-    item.append(createElement("span", `legend-swatch ${className}`), label);
+    const swatch = createElement("span", `legend-swatch ${className}`);
+    swatch.setAttribute("aria-hidden", "true");
+    item.append(swatch, label);
     return item;
   }
 
@@ -940,7 +1277,9 @@
 
   elements.periodPreset.addEventListener("change", () => {
     applyPreset(elements.periodPreset.value);
-    loadDashboard();
+    loadDashboard({
+      collapseFilters: elements.periodPreset.value !== "custom",
+    });
   });
   [elements.startDate, elements.endDate].forEach((input) => {
     input.addEventListener("change", () => {
@@ -949,7 +1288,9 @@
       }
     });
   });
-  elements.categoryFilter.addEventListener("change", loadDashboard);
+  elements.categoryFilter.addEventListener("change", () => {
+    loadDashboard({ collapseFilters: true });
+  });
   elements.filterForm.addEventListener("reset", (event) => {
     event.preventDefault();
     elements.periodPreset.value = "12-months";
@@ -958,7 +1299,21 @@
     state.sortKey = "revenue";
     state.sortDirection = "desc";
     applyPreset("12-months");
-    loadDashboard();
+    updateFilterSummary();
+    loadDashboard({ collapseFilters: true });
+  });
+  elements.filterToggle.addEventListener("click", () => {
+    const expanded =
+      elements.filterToggle.getAttribute("aria-expanded") === "true";
+    setFilterExpanded(!expanded);
+  });
+  elements.mobileSectionSelect.addEventListener("change", () => {
+    navigateToSection(elements.mobileSectionSelect.value);
+  });
+  elements.backToTop.addEventListener("click", () => {
+    const behavior = preferredScrollBehavior();
+    window.scrollTo({ behavior, top: 0 });
+    focusAfterScroll(elements.pageTitle, behavior);
   });
   elements.searchInput.addEventListener("input", () => {
     window.clearTimeout(state.searchTimer);
@@ -978,6 +1333,11 @@
     });
   });
   elements.csvButton.addEventListener("click", downloadCsv);
+  window.addEventListener("scroll", scheduleBackToTopUpdate, {
+    passive: true,
+  });
+  window.addEventListener("resize", scheduleTrendRender, { passive: true });
+  mobileLayout.addEventListener("change", handleLayoutChange);
   elements.retryButton.addEventListener("click", () => {
     if (state.meta) {
       loadDashboard();
@@ -986,5 +1346,6 @@
     }
   });
 
+  updateBackToTopVisibility();
   initialize();
 })();

@@ -389,9 +389,12 @@ focus outlines, a table caption, textual comparison directions, and an SVG chart
 with a title, description, legend, and screen-reader data summary. Missing chart
 months are explicitly identified.
 
-Layouts adapt for desktop, tablet, mobile, and enlarged text. The monthly chart
-and product table retain readable labels through narrow-screen horizontal
-scrolling. Reduced-motion preferences minimize loading animation.
+At 768px and above, Performance over time uses the combined Monthly Revenue and
+Gross Margin line chart. Below 768px, compact revenue and gross-margin summaries
+replace the chart. Mobile layouts include Jump to section, collapsible filters,
+Back to top, and isolated horizontal scrolling within the Product Performance
+table. Responsive behavior was tested at 320px, 375px, 430px, 768px, and
+1440px. Reduced-motion preferences minimize loading animation.
 
 ## Vercel deployment
 

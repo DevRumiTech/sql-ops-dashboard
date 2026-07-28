@@ -31,6 +31,7 @@ def test_application_creation(database_path: Path) -> None:
     assert application.name == "app"
     assert application.config["DATABASE"] == database_path
     assert application.static_url_path == ""
+    assert application.config["TEMPLATES_AUTO_RELOAD"] is True
 
 
 def test_vercel_entry_file_exports_flask_app() -> None:
@@ -49,11 +50,12 @@ def test_home_page_content_and_controls(client: FlaskClient) -> None:
     normalized = " ".join(html.split())
 
     assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
     assert (
         "A dashboard for tracking recognized revenue, product margins, and "
         "category performance using Flask APIs and SQLite."
     ) in normalized
-    assert "<h1>SQL Ops Dashboard</h1>" in html
+    assert '<h1 id="page-title" tabindex="-1">SQL Ops Dashboard</h1>' in html
     assert "Retail Operations Analytics" in html
     assert "Local demonstration" not in html
     assert "Portfolio demo" not in html
@@ -96,6 +98,73 @@ def test_home_page_content_and_controls(client: FlaskClient) -> None:
     assert 'id="ranking-list"' not in html
     assert "Showing the top 10 products by recognized revenue." in html
     assert "Showing the top 8 products by gross margin." in html
+
+
+def test_mobile_navigation_and_filter_controls_are_accessible(
+    client: FlaskClient,
+) -> None:
+    html = client.get("/").get_data(as_text=True)
+
+    assert '<label for="mobile-section-select">Jump to section</label>' in html
+    assert 'id="mobile-section-select"' in html
+    expected_sections = {
+        "overview-section": ("Overview", "overview-heading"),
+        "trend-section": ("Performance trend", "trend-title"),
+        "revenue-section": ("Revenue analysis", "product-mix-title"),
+        "profitability-section": ("Profitability", "margin-title"),
+        "product-performance-section": (
+            "Product performance",
+            "table-title",
+        ),
+    }
+    for section_id, (label, heading_id) in expected_sections.items():
+        assert f'value="{section_id}"' in html
+        assert label in html
+        assert f'id="{section_id}"' in html
+        heading = re.search(
+            rf'<h2[^>]+id="{heading_id}"[^>]*>',
+            html,
+        )
+        assert heading
+        assert 'tabindex="-1"' in heading.group(0)
+
+    filter_toggle = re.search(
+        r'<button[^>]+id="filter-toggle"[^>]*>',
+        html,
+    )
+    assert filter_toggle
+    assert 'aria-expanded="true"' in filter_toggle.group(0)
+    assert 'aria-controls="filter-controls"' in filter_toggle.group(0)
+    assert 'id="filter-summary"' in html
+
+    back_to_top = re.search(
+        r'<button[^>]+id="back-to-top"[^>]*>',
+        html,
+    )
+    assert back_to_top
+    assert 'aria-label="Back to top"' in back_to_top.group(0)
+    assert "hidden" in back_to_top.group(0)
+
+
+def test_every_element_bound_to_a_listener_exists(client: FlaskClient) -> None:
+    html = client.get("/").get_data(as_text=True)
+    event_bound_ids = {
+        "back-to-top",
+        "category-filter",
+        "download-csv",
+        "end-date",
+        "filter-toggle",
+        "global-filters",
+        "mobile-section-select",
+        "period-preset",
+        "product-search",
+        "retry-button",
+        "start-date",
+    }
+
+    for element_id in event_bound_ids:
+        assert f'id="{element_id}"' in html
+    assert html.count('class="sort-button"') == 6
 
 
 @pytest.mark.parametrize(
@@ -156,11 +225,77 @@ def test_frontend_assets_include_required_behaviors(client: FlaskClient) -> None
     assert "let start = minimum;" in javascript
     assert "let end = maximum;" in javascript
     assert 'if (preset !== "all")' in javascript
-    assert "elements.trend.getBoundingClientRect().width" in javascript
-    assert "Math.min(900, Math.max(320, availableWidth || 900))" in javascript
-    assert "const edgePadding = compact ? 24 : 32;" in javascript
-    assert "const dataLeft = plot.left + edgePadding;" in javascript
-    assert "const dataRight = plot.right - edgePadding;" in javascript
+    assert "getTrendChartInnerWidth(canvas)" in javascript
+    assert "canvas.getBoundingClientRect()" in javascript
+    assert "styles.paddingLeft" in javascript
+    assert "styles.paddingRight" in javascript
+    assert 'mobileLayout.matches ? "summary" : "chart"' in javascript
+    assert "function renderTrendSummary(" in javascript
+    assert "function createTrendSummaryGroup(" in javascript
+    assert '"Monthly Revenue"' in javascript
+    assert '"Monthly Gross Margin"' in javascript
+    assert "`Latest ${periodNoun}`" in javascript
+    assert "`Highest ${periodNoun}`" in javascript
+    assert '"Average monthly value"' in javascript
+    assert "rows.at(-1)" in javascript
+    assert "rows.reduce((currentHighest, row)" in javascript
+    assert "rows.reduce((total, row)" in javascript
+    assert 'createElement("div", "trend-mobile-summary")' in javascript
+    assert "function renderCombinedTrendChart(" in javascript
+    assert 'createElement("div", "trend-legend")' in javascript
+    assert 'createLegendItem("legend-revenue", "Recognized revenue")' in javascript
+    assert 'createLegendItem("legend-margin", "Gross margin")' in javascript
+    assert 'createLegendItem("legend-missing", "No completed orders")' in javascript
+    assert 'createElement("div", "trend-chart-canvas")' in javascript
+    assert 'appendTrendSeries(\n      svg,\n      rows,\n      "revenue"' in javascript
+    assert (
+        'appendTrendSeries(\n      svg,\n      rows,\n      "gross_margin"'
+        in javascript
+    )
+    assert "state.renderedTrendWidth = svgWidth;" in javascript
+    assert "state.renderedTrendMode = renderMode;" in javascript
+    assert "const svgWidth = Math.max(" in javascript
+    assert "Math.max(320" not in javascript
+    assert "function renderMiniTrendChart(" not in javascript
+    assert "trend-mini-chart" not in javascript
+    assert "trend-chart-stack" not in javascript
+    assert "renderAsBars" not in javascript
+    assert "appendTrendBars" not in javascript
+    assert "trend-bar" not in javascript
+    assert 'createSvgElement("rect")' not in javascript
+    assert "renderedTrendAsBars" not in javascript
+    assert "const edgeInset = compact ? 24 : 32;" in javascript
+    assert "const dataLeft = plot.left + edgeInset;" in javascript
+    assert "const dataRight = plot.right - edgeInset;" in javascript
+    assert 'svg.setAttribute("viewBox", `0 0 ${svgWidth} ${height}`);' in javascript
+    assert 'svg.setAttribute("width", "100%");' in javascript
+    assert 'svg.setAttribute("preserveAspectRatio", "xMidYMid meet");' in javascript
+    assert "getTrendLabelTarget(svgWidth, granularity)" in javascript
+    assert "getTrendLabelIndexes" in javascript
+    assert re.search(r'index === 0\s+\? "start"', javascript)
+    assert re.search(
+        r'index === rows\.length - 1\s+\? "end"',
+        javascript,
+    )
+    assert '"text-anchor": textAnchor' in javascript
+    assert 'const pointTitle = createSvgElement("title");' in javascript
+    assert "point.append(pointTitle);" in javascript
+    assert 'window.addEventListener("resize", scheduleTrendRender' in javascript
+    assert javascript.count('window.addEventListener("resize"') == 1
+    assert javascript.count('mobileLayout.addEventListener("change"') == 1
+    assert "preferredScrollBehavior" in javascript
+    assert 'reducedMotion.matches ? "auto" : "smooth"' in javascript
+    assert "setFilterExpanded" in javascript
+    assert 'elements.filterControls.hidden = !shouldExpand;' in javascript
+    assert '"aria-expanded"' in javascript
+    assert '"Edit filters"' in javascript
+    assert 'collapseFilters: elements.periodPreset.value !== "custom"' in javascript
+    assert "elements.mobileSectionSelect.addEventListener" in javascript
+    assert 'section.scrollIntoView({ behavior, block: "start" });' in javascript
+    assert "element.focus({ preventScroll: true })" in javascript
+    assert "BACK_TO_TOP_THRESHOLD = 600" in javascript
+    assert 'window.addEventListener("scroll", scheduleBackToTopUpdate' in javascript
+    assert "window.scrollTo({ behavior, top: 0 });" in javascript
     assert "Daily Revenue and Gross Margin" in javascript
     assert "Weekly Revenue and Gross Margin" in javascript
     assert "Monthly Revenue and Gross Margin" in javascript
@@ -204,20 +339,41 @@ def test_frontend_assets_include_required_behaviors(client: FlaskClient) -> None
     assert "width: min(calc(100% - 40px), 1200px);" in css
     assert "@media (max-width: 1080px)" in css
     assert "@media (max-width: 900px)" in css
+    assert "@media (max-width: 800px)" in css
+    assert "@media (max-width: 767.98px)" in css
     assert "@media (max-width: 760px)" in css
-    assert "@media (max-width: 420px)" in css
+    assert "@media (max-width: 480px)" in css
+    assert "@media (max-width: 360px)" in css
+    assert ".trend-region:not(.loading-region)" in css
 
     table_wrap_rule = re.search(r"\.table-wrap\s*\{([^}]*)\}", css)
-    trend_scroll_rule = re.search(r"\.trend-scroll\s*\{([^}]*)\}", css)
-    trend_svg_rule = re.search(r"\.trend-scroll svg\s*\{([^}]*)\}", css)
+    trend_panel_rule = re.search(r"\.trend-panel\s*\{([^}]*)\}", css)
+    trend_canvas_rule = re.search(r"\.trend-chart-canvas\s*\{([^}]*)\}", css)
+    trend_svg_rule = re.search(
+        r"\.trend-chart-canvas svg\s*\{([^}]*)\}",
+        css,
+    )
     site_header_rule = re.search(r"\.site-header\s*\{([^}]*)\}", css)
     assert table_wrap_rule
-    assert trend_scroll_rule
+    assert trend_panel_rule
+    assert trend_canvas_rule
     assert trend_svg_rule
     assert site_header_rule
     assert "overflow-x: auto;" in table_wrap_rule.group(1)
-    assert "overflow: hidden;" in trend_scroll_rule.group(1)
-    assert "min-width: 0;" in trend_svg_rule.group(1)
+    assert "min-width: 0;" in trend_panel_rule.group(1)
+    assert "max-width: 100%;" in trend_panel_rule.group(1)
+    assert "width: 100%;" in trend_canvas_rule.group(1)
+    assert "min-width: 0;" in trend_canvas_rule.group(1)
+    assert "max-width: 100%;" in trend_canvas_rule.group(1)
+    assert "display: block;" in trend_svg_rule.group(1)
+    assert "width: 100%;" in trend_svg_rule.group(1)
+    assert "max-width: 100%;" in trend_svg_rule.group(1)
+    assert "box-sizing: border-box;" in trend_svg_rule.group(1)
+    assert "min-width" not in trend_svg_rule.group(1)
+    assert "overflow: visible;" in trend_svg_rule.group(1)
+    assert "min-width: 0;" in table_wrap_rule.group(1)
+    assert "max-width: 100%;" in table_wrap_rule.group(1)
+    assert "contain: inline-size;" in table_wrap_rule.group(1)
     assert "background: var(--surface);" in site_header_rule.group(1)
     assert "gradient" not in site_header_rule.group(1)
     assert (
@@ -228,14 +384,49 @@ def test_frontend_assets_include_required_behaviors(client: FlaskClient) -> None
     assert "--accent-hover: #cc4c32;" in css
     assert "--teal: #147a6c;" in css
     assert "--blue-dark: #24435a;" in css
+    assert ".trend-chart-stack" not in css
+    assert ".trend-mini-chart" not in css
+    assert ".trend-mini-heading" not in css
+    assert ".trend-mobile-summary" in css
+    assert ".trend-summary-revenue" in css
+    assert ".trend-summary-margin" in css
+    assert ".trend-summary-accent-revenue" in css
+    assert ".trend-summary-accent-margin" in css
     assert ".trend-line-revenue" in css
     assert "stroke: var(--accent);" in css
-    assert ".trend-line.trend-line-margin" in css
+    assert ".trend-line-margin" in css
+    assert "stroke: var(--teal);" in css
     assert "stroke-dasharray: 8 5;" in css
-    assert "border-top: 3px dashed var(--teal);" in css
-    assert "background: var(--accent);" in css
-    assert "background: var(--teal);" in css
+    assert ".trend-legend" in css
+    assert ".legend-item" in css
+    assert ".trend-bar" not in css
     assert 'th[aria-sort="descending"] .sort-button' in css
+
+    for selector in ("html", "body"):
+        root_rule = re.search(
+            rf"(?:^|\n){selector}\s*\{{([^}}]*)\}}",
+            css,
+        )
+        assert root_rule
+        assert "overflow-x:" not in root_rule.group(1)
+
+    mobile_nav_rules = re.findall(
+        r"\.mobile-section-nav\s*\{([^}]*)\}",
+        css,
+    )
+    back_to_top_rules = re.findall(
+        r"\.back-to-top\s*\{([^}]*)\}",
+        css,
+    )
+    assert any(
+        "position: sticky;" in rule
+        and "background: var(--surface);" in rule
+        for rule in mobile_nav_rules
+    )
+    assert any(
+        "position: fixed;" in rule and "min-height: 44px;" in rule
+        for rule in back_to_top_rules
+    )
 
 
 def test_default_period_keeps_all_products_for_table_and_apis(
