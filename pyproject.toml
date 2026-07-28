@@ -1,3 +1,13 @@
+[project]
+name = "sql-ops-dashboard"
+version = "1.0.0"
+description = "A Flask and SQLite retail operations analytics dashboard."
+readme = "README.md"
+requires-python = "~=3.12.0"
+dependencies = [
+    "Flask>=3.0,<4.0",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
