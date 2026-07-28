@@ -8,8 +8,10 @@ database, and transfer numeric analytics through JSON APIs. A responsive HTML,
 CSS, and vanilla JavaScript interface presents recognized revenue, product
 margin, category performance, monthly trends, and sortable product results.
 
-All records are generated demonstration data. The application currently runs
-locally and is not hosted online, so no live-demo URL is included.
+**Live Demo:** [https://sql-ops-dashboard.vercel.app](https://sql-ops-dashboard.vercel.app)
+
+All records are generated demonstration data. Local setup instructions are
+included below.
 
 ## Screenshots
 
@@ -391,11 +393,11 @@ Layouts adapt for desktop, tablet, mobile, and enlarged text. The monthly chart
 and product table retain readable labels through narrow-screen horizontal
 scrolling. Reduced-motion preferences minimize loading animation.
 
-## Vercel deployment preparation
+## Vercel deployment
 
 The root `index.py` exports a Flask instance named `app`, while `run.py` remains
 the local entry point. Flask serves the same `public/` assets locally that a
-future Vercel deployment would use. The bundled `data/ops.db` requires no
+production Vercel deployment uses. The bundled `data/ops.db` requires no
 build-time write, environment secret, external database, or writable deployed
 filesystem.
 
@@ -405,7 +407,7 @@ public assets, `data/ops.db`, and the SQL documentation remain available. A
 `vercel.json` file is not included because the standard Python entry point and
 public directory require no additional routing configuration.
 
-No deployment has been performed and no live-demo link is present.
+The production dashboard is linked near the top of this README.
 
 ## What this project demonstrates
 
@@ -419,4 +421,4 @@ No deployment has been performed and no live-demo link is present.
 - Accessible table sorting and local CSV data transfer
 - Automated testing, coverage measurement, and linting
 - Continuous integration across Python 3.10 and 3.12
-- Deployment preparation without claiming a completed deployment
+- Production deployment with a lightweight Flask entry point
