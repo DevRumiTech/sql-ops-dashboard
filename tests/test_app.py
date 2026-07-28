@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
+import importlib
 import re
 import sqlite3
 from datetime import date, timedelta
@@ -34,13 +34,12 @@ def test_application_creation(database_path: Path) -> None:
 
 
 def test_vercel_entry_file_exports_flask_app() -> None:
-    entry_path = Path(__file__).resolve().parents[1] / "app.py"
-    spec = importlib.util.spec_from_file_location("vercel_entry", entry_path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
+    project_root = Path(__file__).resolve().parents[1]
 
-    spec.loader.exec_module(module)
+    assert not (project_root / "app.py").exists()
+    assert (project_root / "app" / "__init__.py").is_file()
 
+    module = importlib.import_module("index")
     assert isinstance(module.app, Flask)
 
 

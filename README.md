@@ -122,7 +122,7 @@ tests/
 ├── test_app.py              # Page, API, filters, security, read-only tests
 ├── test_database.py         # Determinism, distribution, integrity tests
 └── test_scripts.py          # Generator commands and failure paths
-app.py                       # Vercel-compatible Flask application instance
+index.py                     # Vercel-compatible Flask application instance
 run.py                       # Local development entry point
 pyproject.toml               # Ruff and pytest configuration
 requirements.txt             # Runtime dependency
@@ -393,7 +393,7 @@ scrolling. Reduced-motion preferences minimize loading animation.
 
 ## Vercel deployment preparation
 
-The root `app.py` exports a Flask instance named `app`, while `run.py` remains
+The root `index.py` exports a Flask instance named `app`, while `run.py` remains
 the local entry point. Flask serves the same `public/` assets locally that a
 future Vercel deployment would use. The bundled `data/ops.db` requires no
 build-time write, environment secret, external database, or writable deployed
