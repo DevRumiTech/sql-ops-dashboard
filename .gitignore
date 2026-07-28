@@ -1,4 +1,13 @@
-.DS_Store
-node_modules
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
 .env
-.venv
+.env.*
+.DS_Store
+__MACOSX/
+*.db-shm
+*.db-wal
