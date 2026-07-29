@@ -1480,6 +1480,22 @@ tbody tr:hover {
     min-height: 44px;
   }
 
+  .search-control,
+  #product-search {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .search-control {
+    flex: 1 1 100%;
+  }
+
+  #product-search {
+    min-height: 44px;
+    font-size: 1rem;
+  }
 }
 
 @media (max-width: 760px) {

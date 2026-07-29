@@ -95,6 +95,23 @@ def test_home_page_content_and_controls(client: FlaskClient) -> None:
     assert 'id="download-csv"' in html
     assert html.count('class="sort-button"') == 6
     assert 'aria-sort="descending"' in html
+    viewport = re.search(
+        r'<meta\s+name="viewport"\s+content="([^"]+)">',
+        html,
+    )
+    assert viewport
+    viewport_content = viewport.group(1)
+    assert "width=device-width" in viewport_content
+    assert "initial-scale=1" in viewport_content
+    assert "maximum-scale" not in viewport_content
+    assert "minimum-scale" not in viewport_content
+    assert "user-scalable" not in viewport_content
+    product_search = re.search(
+        r'<input[^>]+id="product-search"[^>]*>',
+        html,
+    )
+    assert product_search
+    assert 'type="search"' in product_search.group(0)
     assert "Product Revenue Ranking" not in html
     assert 'id="ranking-list"' not in html
     assert "Showing the top 10 products by recognized revenue." in html
@@ -372,6 +389,32 @@ def test_frontend_assets_include_required_behaviors(client: FlaskClient) -> None
     assert "@media (max-width: 480px)" in css
     assert "@media (max-width: 360px)" in css
     assert ".trend-region:not(.loading-region)" in css
+
+    mobile_css = css.split(
+        "@media (max-width: 767.98px) {",
+        maxsplit=1,
+    )[1].split("@media (max-width: 760px)", maxsplit=1)[0]
+    search_control_rules = re.findall(
+        r"\.search-control(?:,\s*#product-search)?\s*\{([^}]*)\}",
+        mobile_css,
+    )
+    product_search_rules = re.findall(
+        r"#product-search\s*\{([^}]*)\}",
+        mobile_css,
+    )
+    assert product_search_rules
+    for required_style in (
+        "width: 100%;",
+        "max-width: 100%;",
+        "min-width: 0;",
+        "box-sizing: border-box;",
+    ):
+        assert any(
+            required_style in rule for rule in search_control_rules
+        )
+        assert any(required_style in rule for rule in product_search_rules)
+    assert any("min-height: 44px;" in rule for rule in product_search_rules)
+    assert any("font-size: 1rem;" in rule for rule in product_search_rules)
 
     table_wrap_rule = re.search(r"\.table-wrap\s*\{([^}]*)\}", css)
     trend_panel_rule = re.search(r"\.trend-panel\s*\{([^}]*)\}", css)
