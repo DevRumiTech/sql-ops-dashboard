@@ -174,6 +174,11 @@
     const custom = preset === "custom";
     elements.startDate.readOnly = !custom;
     elements.endDate.readOnly = !custom;
+    [elements.startDate, elements.endDate].forEach((input) => {
+      input
+        .closest(".date-input-shell")
+        .classList.toggle("is-readonly", !custom);
+    });
     elements.dateRangeHelper.textContent = custom
       ? "Choose a start and end date."
       : "Dates are set automatically by the selected period.";

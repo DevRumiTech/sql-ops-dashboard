@@ -329,6 +329,54 @@ h2 {
   font-weight: 600;
 }
 
+.date-input-shell {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #aab4bc;
+  border-radius: 7px;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.date-input-shell.is-readonly {
+  background: #f0f2f3;
+}
+
+.date-input-shell:focus-within {
+  border-color: var(--accent);
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.date-input-shell input[type="date"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  flex: 1 1 0%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-sizing: border-box;
+  background: transparent;
+  color: var(--ink);
+}
+
+.date-input-shell input[type="date"]:focus-visible {
+  outline: 0;
+}
+
+.date-input-shell input[type="date"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
+
 input,
 select {
   width: 100%;
@@ -343,7 +391,7 @@ select {
 }
 
 input[type="date"][readonly] {
-  background: #f0f2f3;
+  background: transparent;
   color: var(--ink);
   cursor: default;
 }
@@ -1306,6 +1354,29 @@ tbody tr:hover {
 @media (max-width: 767.98px) {
   .dashboard {
     padding-bottom: 88px;
+  }
+
+  .global-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .date-input-shell,
+  .date-input-shell input[type="date"] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .date-input-shell {
+    min-height: 44px;
+    padding: 0 10px;
+  }
+
+  .date-input-shell input[type="date"] {
+    min-height: 44px;
+    padding: 0;
+    font-size: 1rem;
   }
 
   .mobile-section-nav {

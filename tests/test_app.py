@@ -77,6 +77,7 @@ def test_home_page_content_and_controls(client: FlaskClient) -> None:
     assert 'id="latest-data-notice"' in html
     assert "Determining latest data date…" in html
     assert "Data through June 30, 2026" not in html
+    assert html.count('class="date-input-shell is-readonly"') == 2
     for control_id in ("start-date", "end-date"):
         date_input = re.search(
             rf'<input[^>]+id="{control_id}"[^>]*>',
@@ -216,6 +217,8 @@ def test_frontend_assets_include_required_behaviors(client: FlaskClient) -> None
     assert "maximum.getUTCMonth(), 1" in javascript
     assert "elements.startDate.readOnly = !custom;" in javascript
     assert "elements.endDate.readOnly = !custom;" in javascript
+    assert '.closest(".date-input-shell")' in javascript
+    assert '.classList.toggle("is-readonly", !custom);' in javascript
     assert "elements.startDate.disabled" not in javascript
     assert "elements.endDate.disabled" not in javascript
     assert 'elements.periodPreset.addEventListener("change"' in javascript
@@ -314,15 +317,39 @@ def test_frontend_assets_include_required_behaviors(client: FlaskClient) -> None
         r'input\[type="date"\]\[readonly\]\s*\{([^}]*)\}',
         css,
     )
+    date_shell_rule = re.search(r"\.date-input-shell\s*\{([^}]*)\}", css)
+    date_input_rule = re.search(
+        r'\.date-input-shell input\[type="date"\]\s*\{([^}]*)\}',
+        css,
+    )
     assert readonly_date_rule
+    assert date_shell_rule
+    assert date_input_rule
     readonly_date_styles = readonly_date_rule.group(1)
-    assert "background: #f0f2f3;" in readonly_date_styles
+    date_shell_styles = date_shell_rule.group(1)
+    date_input_styles = date_input_rule.group(1)
+    assert "background: transparent;" in readonly_date_styles
     assert "color: var(--ink);" in readonly_date_styles
     assert "cursor: default;" in readonly_date_styles
     assert "box-shadow" not in readonly_date_styles
     assert "border-left" not in readonly_date_styles
     assert "gradient" not in readonly_date_styles
     assert "opacity" not in readonly_date_styles
+    for required_style in (
+        "width: 100%;",
+        "max-width: 100%;",
+        "min-width: 0;",
+        "box-sizing: border-box;",
+    ):
+        assert required_style in date_shell_styles
+        assert required_style in date_input_styles
+    assert "padding: 0 10px;" in date_shell_styles
+    assert "border: 1px solid #aab4bc;" in date_shell_styles
+    assert "padding: 0;" in date_input_styles
+    assert "border: 0;" in date_input_styles
+    assert "appearance:" not in date_input_styles
+    assert ".date-input-shell.is-readonly" in css
+    assert "min-height: 44px;" in css
     assert "border: 1px solid #aab4bc;" in css
     assert ".date-range-helper" in css
     assert ".latest-data-notice" in css
